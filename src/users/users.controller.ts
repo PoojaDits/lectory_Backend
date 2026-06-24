@@ -23,7 +23,7 @@ import {
   RejectSellerDto,
   UpdateMeDto,
   UpdateUserStatusDto,
-} from './dto';
+} from '../sellers/dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { Roles } from '../auth/decorators/roles.decorator';

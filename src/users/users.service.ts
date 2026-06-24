@@ -11,7 +11,7 @@ import { User, UserDocument } from './users.schema';
 import { USER_MESSAGES, SELLER_MESSAGES } from '../common/constants/messages.constant';
 import { SellerStatus } from '../common/enums/seller-status.enum';
 import { UserRole } from '../common/enums/user-role.enum';
-import { QueryUsersDto, UpdateMeDto } from './dto';
+import { QueryUsersDto, UpdateMeDto } from '../sellers/dto';
 
 
 @Injectable()
@@ -57,23 +57,27 @@ export class UsersService {
   }
 
   async upsertAdmin(data: Partial<User>, plainPassword: string) {
-    const email = data.email!.toLowerCase();
-    const password = await bcrypt.hash(plainPassword, 12);
+    try {
+      const email = data.email!.toLowerCase();
+      const password = await bcrypt.hash(plainPassword, 12);
 
-    return this.userModel.findOneAndUpdate(
-      { email },
-      {
-        $set: {
-          ...data,
-          email,
-          role: UserRole.ADMIN,
-          password,
-          isActive: true,
-          isEmailVerified: true,
+      return this.userModel.findOneAndUpdate(
+        { email },
+        {
+          $set: {
+            ...data,
+            email,
+            role: UserRole.ADMIN,
+            password,
+            isActive: true,
+            isEmailVerified: true,
+          },
         },
-      },
-      { new: true, upsert: true, setDefaultsOnInsert: true },
-    ).exec();
+        { new: true, upsert: true, setDefaultsOnInsert: true },
+      ).exec();
+    } catch (error) {
+      throw error;
+    }
   }
 
   async findAll(query: QueryUsersDto = {}) {
@@ -212,20 +216,24 @@ export class UsersService {
   }
 
   async rejectSeller(id: string, rejectionReason?: string) {
-    const user = await this.getByIdOrFail(id);
-    if (user.role !== UserRole.SELLER) {
-      throw new BadRequestException('User is not a seller');
-    }
+    try {
+      const user = await this.getByIdOrFail(id);
+      if (user.role !== UserRole.SELLER) {
+        throw new BadRequestException('User is not a seller');
+      }
 
-    return this.userModel.findByIdAndUpdate(
-      id,
-      {
-        sellerStatus: SellerStatus.REJECTED,
-        rejectionReason: rejectionReason || SELLER_MESSAGES.REJECTED,
-        approvedAt: null,
-      },
-      { new: true },
-    ).exec();
+      return this.userModel.findByIdAndUpdate(
+        id,
+        {
+          sellerStatus: SellerStatus.REJECTED,
+          rejectionReason: rejectionReason || SELLER_MESSAGES.REJECTED,
+          approvedAt: null,
+        },
+        { new: true },
+      ).exec();
+    } catch (error) {
+      throw error;
+    }
   }
 
   async findPendingSellers() {
@@ -236,8 +244,12 @@ export class UsersService {
   }
 
   async deleteUser(id: string) {
-    const user = await this.userModel.findByIdAndDelete(id).exec();
-    if (!user) throw new NotFoundException(USER_MESSAGES.USER_NOT_FOUND);
-    return user;
+    try {
+      const user = await this.userModel.findByIdAndDelete(id).exec();
+      if (!user) throw new NotFoundException(USER_MESSAGES.USER_NOT_FOUND);
+      return user;
+    } catch (error) {
+      throw error;
+    }
   }
 }

@@ -7,6 +7,8 @@ import { getDatabaseConfig } from './config';
 import { UsersModule } from './users/users.module';
 import { AuthModule } from './auth/auth.module';
 import { MailModule } from './mail/mail.module';
+import { CustomersModule } from './customers/customers.module';
+import { SellersModule } from './sellers/sellers.module';
 
 @Module({
   imports: [
@@ -18,6 +20,8 @@ import { MailModule } from './mail/mail.module';
     MailModule, // @Global() – makes MailService available everywhere
     UsersModule,
     AuthModule,
+    CustomersModule,
+    SellersModule,
   ],
   controllers: [AppController],
   providers: [AppService],

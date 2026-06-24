@@ -71,8 +71,9 @@ export class AuthService {
         role: user.role,
         sellerStatus: user.sellerStatus,
       };
-    } catch (error) {
-      this.logger.error(`Register failed: ${error.message}`, error.stack);
+    } catch (error: unknown) {
+      const err = error as Error;
+      this.logger.error(`Register failed: ${err.message}`, err.stack);
       throw error;
     }
   }
@@ -114,8 +115,9 @@ export class AuthService {
 
       await this.usersService.markEmailVerified(user.id);
       return { message: OTP_MESSAGES.VERIFIED };
-    } catch (error) {
-      this.logger.error(`Verify OTP failed: ${error.message}`, error.stack);
+    } catch (error: unknown) {
+      const err = error as Error;
+      this.logger.error(`Verify OTP failed: ${err.message}`, err.stack);
       throw error;
     }
   }
@@ -133,8 +135,9 @@ export class AuthService {
         user.firstName || user.contactPerson,
       );
       return { message: OTP_MESSAGES.RESENT };
-    } catch (error) {
-      this.logger.error(`Resend OTP failed: ${error.message}`, error.stack);
+    } catch (error: unknown) {
+      const err = error as Error;
+      this.logger.error(`Resend OTP failed: ${err.message}`, err.stack);
       throw error;
     }
   }
@@ -154,66 +157,84 @@ export class AuthService {
         throw new ForbiddenException(AUTH_MESSAGES.SELLER_PENDING);
       }
       return user;
-    } catch (error) {
-      this.logger.error(`Validate user failed: ${error.message}`, error.stack);
+    } catch (error: unknown) {
+      const err = error as Error;
+      this.logger.error(`Validate user failed: ${err.message}`, err.stack);
       throw error;
     }
   }
 
   async login(user: UserDocument): Promise<LoginResponse> {
-  
-    const userId = user.id;
+    try {
+      const userId = user.id;
 
-    const payload: JwtPayload = {
-      sub: userId,
-      email: user.email,
-      role: user.role,
-    };
-
-    const tokens = await this.signTokens(payload);
-    const refreshHash = await bcrypt.hash(tokens.refresh_token, 10);
-    await this.usersService.setRefreshToken(userId, refreshHash);
-
-    return {
-      access_token: tokens.access_token,
-      refresh_token: tokens.refresh_token,
-      user: {
-        id: userId,
+      const payload: JwtPayload = {
+        sub: userId,
         email: user.email,
         role: user.role,
-        firstName: user.firstName,
-        lastName: user.lastName,
-        businessName: user.businessName,
-      },
-    };
+      };
+
+      const tokens = await this.signTokens(payload);
+      const refreshHash = await bcrypt.hash(tokens.refresh_token, 10);
+      await this.usersService.setRefreshToken(userId, refreshHash);
+
+      return {
+        access_token: tokens.access_token,
+        refresh_token: tokens.refresh_token,
+        user: {
+          id: userId,
+          email: user.email,
+          role: user.role,
+          firstName: user.firstName,
+          lastName: user.lastName,
+          businessName: user.businessName,
+        },
+      };
+    } catch (error: unknown) {
+      const err = error as Error;
+      this.logger.error(`Login failed: ${err.message}`, err.stack);
+      throw error;
+    }
   }
 
   // REFRESH
   async refresh(userId: string, refreshToken: string): Promise<RefreshResponse> {
-    const user = await this.usersService.findById(userId, true);
-    if (!user || !user.refreshTokenHash) {
-      throw new UnauthorizedException(AUTH_MESSAGES.UNAUTHORIZED);
+    try {
+      const user = await this.usersService.findById(userId, true);
+      if (!user || !user.refreshTokenHash) {
+        throw new UnauthorizedException(AUTH_MESSAGES.UNAUTHORIZED);
+      }
+
+      const ok = await bcrypt.compare(refreshToken, user.refreshTokenHash);
+      if (!ok) throw new UnauthorizedException(AUTH_MESSAGES.UNAUTHORIZED);
+
+      const payload: JwtPayload = {
+        sub: user.id,
+        email: user.email,
+        role: user.role,
+      };
+
+      const tokens = await this.signTokens(payload);
+      await this.usersService.setRefreshToken(
+        user.id,
+        await bcrypt.hash(tokens.refresh_token, 10),
+      );
+      return tokens;
+    } catch (error: unknown) {
+      const err = error as Error;
+      this.logger.error(`Refresh token failed: ${err.message}`, err.stack);
+      throw error;
     }
-
-    const ok = await bcrypt.compare(refreshToken, user.refreshTokenHash);
-    if (!ok) throw new UnauthorizedException(AUTH_MESSAGES.UNAUTHORIZED);
-
-    const payload: JwtPayload = {
-      sub: user.id,
-      email: user.email,
-      role: user.role,
-    };
-
-    const tokens = await this.signTokens(payload);
-    await this.usersService.setRefreshToken(
-      user.id,
-      await bcrypt.hash(tokens.refresh_token, 10),
-    );
-    return tokens;
   }
 
   async logout(userId: string): Promise<{ message: string }> {
-    await this.usersService.setRefreshToken(userId, null);
-    return { message: AUTH_MESSAGES.LOGOUT_SUCCESS };
+    try {
+      await this.usersService.setRefreshToken(userId, null);
+      return { message: AUTH_MESSAGES.LOGOUT_SUCCESS };
+    } catch (error: unknown) {
+      const err = error as Error;
+      this.logger.error(`Logout failed: ${err.message}`, err.stack);
+      throw error;
+    }
   }
 }
