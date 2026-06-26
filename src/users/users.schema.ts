@@ -18,28 +18,26 @@ export class User {
   @Prop({ default: true })
   isActive: boolean;
 
-  
   @Prop({ default: false })
   isEmailVerified: boolean;
 
   @Prop({ select: false })
-  otpCode?: string; 
+  otpCode?: string;
 
   @Prop()
   otpExpiresAt?: Date;
 
-  
   @Prop({ select: false })
   refreshTokenHash?: string;
 
-  // Customer 
+  // ── Customer fields ──
   @Prop()
   firstName?: string;
 
   @Prop()
   lastName?: string;
 
-  // Seller
+  // ── Seller fields ──
   @Prop()
   businessName?: string;
 
@@ -61,7 +59,6 @@ export class User {
 
 export const UserSchema = SchemaFactory.createForClass(User);
 
-// Clean JSON output: strip secrets
 UserSchema.set('toJSON', {
   transform: (_doc, ret) => {
     delete ret.password;

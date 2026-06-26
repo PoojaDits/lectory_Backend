@@ -1,4 +1,4 @@
-import {BadRequestException,ForbiddenException,Injectable,Logger, UnauthorizedException,} from '@nestjs/common';
+import { BadRequestException, ForbiddenException, Injectable, Logger, UnauthorizedException } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
 import * as bcrypt from 'bcrypt';
@@ -40,7 +40,7 @@ export class AuthService {
     return { access_token, refresh_token };
   }
 
-  // REGISTER 
+  // ── REGISTER (single user document with role-specific fields) ──
   async register(dto: RegisterDto): Promise<RegisterResponse> {
     try {
       const userData: any = {
@@ -61,8 +61,12 @@ export class AuthService {
 
       const user = await this.usersService.createUser(userData, dto.password);
 
-      // Send OTP
-      await this.sendOtp(user.id, user.email, user.role, user.firstName || user.contactPerson);
+      await this.sendOtp(
+        user.id,
+        user.email,
+        user.role,
+        user.firstName || user.contactPerson,
+      );
 
       return {
         message: OTP_MESSAGES.SENT,
@@ -78,7 +82,7 @@ export class AuthService {
     }
   }
 
-  // OTP 
+  // ── OTP ──
   async sendOtp(userId: string, email?: string, role?: UserRole, name?: string) {
     const otp = this.generateOtp();
     const otpHash = await bcrypt.hash(otp, 10);
@@ -86,11 +90,8 @@ export class AuthService {
     const expiresAt = new Date(Date.now() + minutes * 60000);
 
     await this.usersService.setOtp(userId, otpHash, expiresAt);
-
-    // Always log in dev – helps if SMTP fails
     this.logger.log(`OTP for user ${userId} (${email}): ${otp} (expires ${minutes}m)`);
 
-    // Send real email if we have an email address
     if (email) {
       await this.mailService.sendOtpEmail(email, otp, name, role);
     }
@@ -141,6 +142,8 @@ export class AuthService {
       throw error;
     }
   }
+
+  // ── VALIDATE (Local strategy) ──
   async validateUser(email: string, password: string): Promise<UserDocument> {
     try {
       const user = await this.usersService.findByEmail(email, true);
@@ -164,16 +167,11 @@ export class AuthService {
     }
   }
 
+  // ── LOGIN ──
   async login(user: UserDocument): Promise<LoginResponse> {
     try {
       const userId = user.id;
-
-      const payload: JwtPayload = {
-        sub: userId,
-        email: user.email,
-        role: user.role,
-      };
-
+      const payload: JwtPayload = { sub: userId, email: user.email, role: user.role };
       const tokens = await this.signTokens(payload);
       const refreshHash = await bcrypt.hash(tokens.refresh_token, 10);
       await this.usersService.setRefreshToken(userId, refreshHash);
@@ -197,7 +195,7 @@ export class AuthService {
     }
   }
 
-  // REFRESH
+  // ── REFRESH ──
   async refresh(userId: string, refreshToken: string): Promise<RefreshResponse> {
     try {
       const user = await this.usersService.findById(userId, true);
@@ -208,12 +206,7 @@ export class AuthService {
       const ok = await bcrypt.compare(refreshToken, user.refreshTokenHash);
       if (!ok) throw new UnauthorizedException(AUTH_MESSAGES.UNAUTHORIZED);
 
-      const payload: JwtPayload = {
-        sub: user.id,
-        email: user.email,
-        role: user.role,
-      };
-
+      const payload: JwtPayload = { sub: user.id, email: user.email, role: user.role };
       const tokens = await this.signTokens(payload);
       await this.usersService.setRefreshToken(
         user.id,
@@ -227,6 +220,7 @@ export class AuthService {
     }
   }
 
+  // ── LOGOUT ──
   async logout(userId: string): Promise<{ message: string }> {
     try {
       await this.usersService.setRefreshToken(userId, null);

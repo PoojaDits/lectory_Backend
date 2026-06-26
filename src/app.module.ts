@@ -10,6 +10,8 @@ import { MailModule } from './mail/mail.module';
 import { CustomersModule } from './customers/customers.module';
 import { SellersModule } from './sellers/sellers.module';
 import { BooksModule } from './books/books.module';
+import { AdminModule } from './admin/admin.module';
+import { ListingsModule } from './listings/listings.module';
 
 @Module({
   imports: [
@@ -23,7 +25,9 @@ import { BooksModule } from './books/books.module';
     AuthModule,
     CustomersModule,
     SellersModule,
+    AdminModule,
     BooksModule,
+    ListingsModule,
   ],
   controllers: [AppController],
   providers: [AppService],

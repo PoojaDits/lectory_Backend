@@ -8,7 +8,6 @@ import {
   HttpStatus,
   Param,
   Patch,
-  Query,
   UseGuards,
 } from '@nestjs/common';
 import {
@@ -18,39 +17,31 @@ import {
   ApiTags,
 } from '@nestjs/swagger';
 import { UsersService } from './users.service';
-import {
-  QueryUsersDto,
-  RejectSellerDto,
-  UpdateMeDto,
-  UpdateUserStatusDto,
-} from '../sellers/dto';
+import { UpdateMeDto } from '../sellers/dto';
+import { UpdateUserStatusDto } from '../sellers/dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { Roles } from '../auth/decorators/roles.decorator';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { UserRole } from '../common/enums';
 import { AuthUser } from '../common/interfaces';
-import { MailService } from '../mail/mail.service';
-import { SELLER_MESSAGES } from '../common/constants';
 
 @ApiTags('users')
 @ApiBearerAuth('access-token')
 @Controller('users')
-@UseGuards(JwtAuthGuard)
 export class UsersController {
-  constructor(
-    private readonly usersService: UsersService,
-    private readonly mailService: MailService,
-  ) {}
+  constructor(private readonly usersService: UsersService) {}
 
   @Get('me')
-  @ApiOperation({ summary: 'Get logged-in user profile' })
+  @UseGuards(JwtAuthGuard)
+  @ApiOperation({ summary: 'Get logged-in user auth record' })
   getMe(@CurrentUser('userId') userId: string) {
     return this.usersService.getByIdOrFail(userId);
   }
 
   @Patch('me')
-  @ApiOperation({ summary: 'Update logged-in user/customer/seller profile' })
+  @UseGuards(JwtAuthGuard)
+  @ApiOperation({ summary: 'Update logged-in user profile (password, names, etc.)' })
   updateMe(
     @CurrentUser('userId') userId: string,
     @Body() dto: UpdateMeDto,
@@ -59,88 +50,27 @@ export class UsersController {
   }
 
   @Get()
-  @UseGuards(RolesGuard)
+  @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(UserRole.ADMIN)
-  @ApiOperation({ summary: 'Admin: list all users with filters and pagination' })
-  findAll(@Query() query: QueryUsersDto) {
-    return this.usersService.findAll(query);
-  }
-
-  @Get('customers')
-  @UseGuards(RolesGuard)
-  @Roles(UserRole.ADMIN)
-  @ApiOperation({ summary: 'Admin: list all customers' })
-  findCustomers(@Query() query: QueryUsersDto) {
-    return this.usersService.findCustomers(query);
-  }
-
-  @Get('sellers')
-  @UseGuards(RolesGuard)
-  @Roles(UserRole.ADMIN)
-  @ApiOperation({ summary: 'Admin: list all sellers' })
-  findSellers(@Query() query: QueryUsersDto) {
-    return this.usersService.findSellers(query);
-  }
-
-  @Get('sellers/pending')
-  @UseGuards(RolesGuard)
-  @Roles(UserRole.ADMIN)
-  @ApiOperation({ summary: 'Admin: list sellers pending approval' })
-  findPendingSellers() {
-    return this.usersService.findPendingSellers();
-  }
-
-  @Patch('sellers/:id/approve')
-  @UseGuards(RolesGuard)
-  @Roles(UserRole.ADMIN)
-  @ApiParam({ name: 'id', description: 'Seller user id' })
-  @ApiOperation({ summary: 'Admin: approve seller account' })
-  async approveSeller(@Param('id') id: string) {
-    const seller = await this.usersService.approveSeller(id);
-
-    if (seller?.email) {
-      await this.mailService.sendSellerApprovedEmail(
-        seller.email,
-        seller.contactPerson || seller.businessName || 'Seller',
-      );
-    }
-
-    return {
-      message: SELLER_MESSAGES.APPROVED,
-      seller,
-    };
-  }
-
-  @Patch('sellers/:id/reject')
-  @UseGuards(RolesGuard)
-  @Roles(UserRole.ADMIN)
-  @ApiParam({ name: 'id', description: 'Seller user id' })
-  @ApiOperation({ summary: 'Admin: reject seller account' })
-  async rejectSeller(
-    @Param('id') id: string,
-    @Body() dto: RejectSellerDto,
-  ) {
-    const seller = await this.usersService.rejectSeller(id, dto.rejectionReason);
-    return {
-      message: SELLER_MESSAGES.REJECTED,
-      seller,
-    };
+  @ApiOperation({ summary: 'Admin: list all auth users' })
+  findAll() {
+    return this.usersService.findAll();
   }
 
   @Get(':id')
-  @UseGuards(RolesGuard)
+  @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(UserRole.ADMIN)
-  @ApiParam({ name: 'id', description: 'User id' })
-  @ApiOperation({ summary: 'Admin: get user by id' })
+  @ApiParam({ name: 'id', description: 'User auth id' })
+  @ApiOperation({ summary: 'Admin: get auth user by id' })
   findOne(@Param('id') id: string) {
     return this.usersService.getByIdOrFail(id);
   }
 
   @Patch(':id/status')
-  @UseGuards(RolesGuard)
+  @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(UserRole.ADMIN)
-  @ApiParam({ name: 'id', description: 'User id' })
-  @ApiOperation({ summary: 'Admin: activate/deactivate user' })
+  @ApiParam({ name: 'id', description: 'User auth id' })
+  @ApiOperation({ summary: 'Admin: activate/deactivate user auth account' })
   updateStatus(
     @Param('id') id: string,
     @Body() dto: UpdateUserStatusDto,
@@ -150,10 +80,10 @@ export class UsersController {
 
   @Delete(':id')
   @HttpCode(HttpStatus.NO_CONTENT)
-  @UseGuards(RolesGuard)
+  @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(UserRole.ADMIN)
-  @ApiParam({ name: 'id', description: 'User id' })
-  @ApiOperation({ summary: 'Admin: delete user' })
+  @ApiParam({ name: 'id', description: 'User auth id' })
+  @ApiOperation({ summary: 'Admin: delete auth user' })
   async deleteUser(@Param('id') id: string, @CurrentUser() authUser: AuthUser) {
     if (authUser.userId === id) {
       throw new BadRequestException('You cannot delete your own account');

@@ -5,49 +5,54 @@ import { User, UserDocument } from '../users/users.schema';
 import { UserRole } from '../common/enums';
 
 @Injectable()
-export class CustomersService {
+export class AdminsService {
   constructor(
     @InjectModel(User.name) private userModel: Model<UserDocument>,
   ) {}
 
-  private customerFilter() {
-    return { role: UserRole.CUSTOMER };
+  private adminFilter() {
+    return { role: UserRole.ADMIN };
   }
 
   async create(data: Partial<User>): Promise<UserDocument> {
-    return this.userModel.create({ ...data, role: UserRole.CUSTOMER });
+    return this.userModel.create({
+      ...data,
+      role: UserRole.ADMIN,
+      isActive: true,
+      isEmailVerified: true,
+    });
   }
 
   async findAll(): Promise<UserDocument[]> {
     return this.userModel
-      .find(this.customerFilter())
+      .find(this.adminFilter())
       .sort({ createdAt: -1 })
       .exec();
   }
 
   async findById(id: string): Promise<UserDocument> {
-    const customer = await this.userModel
-      .findOne({ _id: id, ...this.customerFilter() })
+    const admin = await this.userModel
+      .findOne({ _id: id, ...this.adminFilter() })
       .exec();
-    if (!customer) throw new NotFoundException('Customer not found');
-    return customer;
+    if (!admin) throw new NotFoundException('Admin not found');
+    return admin;
   }
 
   async findByUserId(userId: string): Promise<UserDocument | null> {
     return this.userModel
-      .findOne({ _id: userId, ...this.customerFilter() })
+      .findOne({ _id: userId, ...this.adminFilter() })
       .exec();
   }
 
   async update(id: string, data: Partial<User>): Promise<UserDocument> {
-    const customer = await this.userModel
+    const admin = await this.userModel
       .findOneAndUpdate(
-        { _id: id, ...this.customerFilter() },
+        { _id: id, ...this.adminFilter() },
         data,
         { new: true },
       )
       .exec();
-    if (!customer) throw new NotFoundException('Customer not found');
-    return customer;
+    if (!admin) throw new NotFoundException('Admin not found');
+    return admin;
   }
 }
