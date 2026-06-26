@@ -12,6 +12,9 @@ import { SellersModule } from './sellers/sellers.module';
 import { BooksModule } from './books/books.module';
 import { AdminModule } from './admin/admin.module';
 import { ListingsModule } from './listings/listings.module';
+import { CartsModule } from './carts/carts.module';
+import { CartItemsModule } from './cart-items/cart-items.module';
+
 
 @Module({
   imports: [
@@ -28,6 +31,8 @@ import { ListingsModule } from './listings/listings.module';
     AdminModule,
     BooksModule,
     ListingsModule,
+    CartsModule,
+    CartItemsModule,
   ],
   controllers: [AppController],
   providers: [AppService],
