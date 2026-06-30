@@ -1,5 +1,5 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { IsBoolean, IsNotEmpty, IsNumber, IsString, Min } from 'class-validator';
+import { IsBoolean, IsNotEmpty, IsNumber, IsOptional, IsString, Min } from 'class-validator';
 
 export class CreateListingDto {
   @ApiProperty({ example: '64a1b2c3d4e5f6g7h8i9j0k1', description: 'Book ID to list for sale' })
@@ -18,6 +18,7 @@ export class CreateListingDto {
   stock: number;
 
   @ApiProperty({ example: true, description: 'Whether the listing is active', required: false })
+  @IsOptional()
   @IsBoolean()
   active?: boolean;
 }

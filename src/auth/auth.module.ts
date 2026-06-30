@@ -3,6 +3,7 @@ import { JwtModule } from '@nestjs/jwt';
 import { PassportModule } from '@nestjs/passport';
 import { ConfigService } from '@nestjs/config';
 import { UsersModule } from '../users/users.module';
+import { CartsModule } from '../carts/carts.module';
 import { AuthService } from './auth.service';
 import { AuthController } from './auth.controller';
 import { getJwtConfig } from '../config/jwt.config';
@@ -11,6 +12,7 @@ import { LocalStrategy, JwtStrategy, JwtRefreshStrategy } from './strategies';
 @Module({
   imports: [
     UsersModule,
+    CartsModule,
     PassportModule,
     JwtModule.registerAsync({
       inject: [ConfigService],

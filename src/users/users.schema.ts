@@ -37,6 +37,16 @@ export class User {
   @Prop()
   lastName?: string;
 
+  @Prop({ trim: true })
+  phone?: string;
+
+  @Prop({ type: [Object], default: [] })
+  addresses?: Record<string, any>[];
+
+  @Prop()
+  avatar?: string;
+
+
   // ── Seller fields ──
   @Prop()
   businessName?: string;
@@ -60,7 +70,19 @@ export class User {
 export const UserSchema = SchemaFactory.createForClass(User);
 
 UserSchema.set('toJSON', {
+  virtuals: true,
   transform: (_doc, ret) => {
+    (ret as any).id = ret._id?.toString?.();
+    if (ret.sellerStatus) {
+      (ret as any).status =
+        ret.sellerStatus === SellerStatus.PENDING
+          ? 'Pending Approval'
+          : ret.sellerStatus === SellerStatus.APPROVED
+            ? 'Approved'
+            : 'Rejected';
+    }
+    delete ret._id;
+    delete ret.__v;
     delete ret.password;
     delete ret.otpCode;
     delete ret.refreshTokenHash;

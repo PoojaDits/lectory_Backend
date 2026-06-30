@@ -15,6 +15,9 @@ import {
   VerifyOtpDto,
   ResendOtpDto,
   RefreshTokenDto,
+  ForgotPasswordDto,
+  ResetPasswordDto,
+  ChangePasswordDto,
 } from './dto';
 import { LocalAuthGuard } from './guards/local-auth.guard';
 import { JwtRefreshGuard } from './guards/jwt-refresh.guard';
@@ -60,6 +63,33 @@ export class AuthController {
     @Req() req: { user: UserDocument },
   ): Promise<LoginResponse> {
     return this.authService.login(req.user);
+  }
+
+
+
+  // Forgot password: send OTP to registered email
+  @Post('forgot-password')
+  @HttpCode(HttpStatus.OK)
+  forgotPassword(@Body() dto: ForgotPasswordDto): Promise<{ message: string }> {
+    return this.authService.forgotPassword(dto.email);
+  }
+
+  // Reset password using OTP sent by forgot-password
+  @Post('reset-password')
+  @HttpCode(HttpStatus.OK)
+  resetPassword(@Body() dto: ResetPasswordDto): Promise<{ message: string }> {
+    return this.authService.resetPassword(dto);
+  }
+
+  // Logged-in user changes password by providing current password
+  @UseGuards(JwtAuthGuard)
+  @Post('change-password')
+  @HttpCode(HttpStatus.OK)
+  changePassword(
+    @CurrentUser('userId') userId: string,
+    @Body() dto: ChangePasswordDto,
+  ): Promise<{ message: string }> {
+    return this.authService.changePassword(userId, dto);
   }
 
   // Refresh tokens

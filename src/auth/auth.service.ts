@@ -5,7 +5,7 @@ import * as bcrypt from 'bcrypt';
 import * as crypto from 'crypto';
 import { UsersService } from '../users/users.service';
 import { UserDocument } from '../users/users.schema';
-import { RegisterDto, VerifyOtpDto } from './dto';
+import { ChangePasswordDto, RegisterDto, ResetPasswordDto, VerifyOtpDto } from './dto';
 import { UserRole, SellerStatus } from '../common/enums';
 import { AUTH_MESSAGES, OTP_MESSAGES, USER_MESSAGES } from '../common/constants';
 import {
@@ -15,6 +15,7 @@ import {
   RefreshResponse,
 } from '../common/interfaces';
 import { MailService } from '../mail/mail.service';
+import { CartsService } from '../carts/carts.service';
 
 @Injectable()
 export class AuthService {
@@ -25,6 +26,7 @@ export class AuthService {
     private jwtService: JwtService,
     private config: ConfigService,
     private mailService: MailService,
+    private cartsService: CartsService,
   ) {}
 
   private generateOtp(): string {
@@ -60,6 +62,12 @@ export class AuthService {
       }
 
       const user = await this.usersService.createUser(userData, dto.password);
+
+      // Every customer starts with one empty cart. The service is idempotent,
+      // so calling it here and later from the frontend is safe.
+      if (user.role === UserRole.CUSTOMER) {
+        await this.cartsService.create(user.id);
+      }
 
       await this.sendOtp(
         user.id,
@@ -186,6 +194,10 @@ export class AuthService {
           firstName: user.firstName,
           lastName: user.lastName,
           businessName: user.businessName,
+          contactPerson: user.contactPerson,
+          mobileNumber: user.mobileNumber,
+          sellerStatus: user.sellerStatus,
+          createdAt: (user as any).createdAt,
         },
       };
     } catch (error: unknown) {
@@ -194,6 +206,86 @@ export class AuthService {
       throw error;
     }
   }
+
+
+
+  // ── FORGOT PASSWORD ──
+  async forgotPassword(email: string): Promise<{ message: string }> {
+    try {
+      const user = await this.usersService.findByEmail(email);
+      if (!user) throw new BadRequestException(USER_MESSAGES.USER_NOT_FOUND);
+
+      await this.sendOtp(
+        user.id,
+        user.email,
+        user.role,
+        user.firstName || user.contactPerson,
+      );
+
+      return { message: OTP_MESSAGES.SENT };
+    } catch (error: unknown) {
+      const err = error as Error;
+      this.logger.error(`Forgot password failed: ${err.message}`, err.stack);
+      throw error;
+    }
+  }
+
+  // ── RESET PASSWORD WITH OTP ──
+  async resetPassword(dto: ResetPasswordDto): Promise<{ message: string }> {
+    try {
+      const user = await this.usersService.findByEmail(dto.email, true);
+      if (!user || !user.otpCode || !user.otpExpiresAt) {
+        throw new BadRequestException(OTP_MESSAGES.INVALID);
+      }
+      if (user.otpExpiresAt < new Date()) {
+        throw new BadRequestException(OTP_MESSAGES.INVALID);
+      }
+
+      const ok = await bcrypt.compare(dto.otp, user.otpCode);
+      if (!ok) throw new BadRequestException(OTP_MESSAGES.INVALID);
+
+      await this.usersService.updatePassword(user.id, dto.newPassword);
+      await this.usersService.clearOtp(user.id);
+      await this.usersService.setRefreshToken(user.id, null);
+
+      return { message: 'Password reset successfully' };
+    } catch (error: unknown) {
+      const err = error as Error;
+      this.logger.error(`Reset password failed: ${err.message}`, err.stack);
+      throw error;
+    }
+  }
+
+  // ── CHANGE PASSWORD WHILE LOGGED IN ──
+  async changePassword(
+    userId: string,
+    dto: ChangePasswordDto,
+  ): Promise<{ message: string }> {
+    try {
+      const user = await this.usersService.findById(userId, true);
+      if (!user) throw new BadRequestException(USER_MESSAGES.USER_NOT_FOUND);
+
+      const currentOk = await bcrypt.compare(dto.currentPassword, user.password);
+      if (!currentOk) {
+        throw new UnauthorizedException('Current password is incorrect');
+      }
+
+      const samePassword = await bcrypt.compare(dto.newPassword, user.password);
+      if (samePassword) {
+        throw new BadRequestException('New password must be different from current password');
+      }
+
+      await this.usersService.updatePassword(user.id, dto.newPassword);
+      await this.usersService.setRefreshToken(user.id, null);
+
+      return { message: 'Password changed successfully' };
+    } catch (error: unknown) {
+      const err = error as Error;
+      this.logger.error(`Change password failed: ${err.message}`, err.stack);
+      throw error;
+    }
+  }
+
 
   // ── REFRESH ──
   async refresh(userId: string, refreshToken: string): Promise<RefreshResponse> {

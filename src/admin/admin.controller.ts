@@ -49,6 +49,16 @@ export class AdminsController {
     return admin;
   }
 
+
+  @Get('dashboard')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.ADMIN)
+  @ApiBearerAuth('access-token')
+  @ApiOperation({ summary: 'Admin: marketplace dashboard summary counts' })
+  async dashboardSummary() {
+    return this.adminsService.dashboardSummary();
+  }
+
   @Get(':id')
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(UserRole.ADMIN)

@@ -18,6 +18,10 @@ export interface LoginResponse {
     firstName?: string;
     lastName?: string;
     businessName?: string;
+    contactPerson?: string;
+    mobileNumber?: string;
+    sellerStatus?: SellerStatus;
+    createdAt?: Date;
   };
 }
 

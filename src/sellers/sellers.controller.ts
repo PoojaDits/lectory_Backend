@@ -49,6 +49,17 @@ export class SellersController {
     return seller;
   }
 
+
+  @Patch('me')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.SELLER)
+  @ApiBearerAuth('access-token')
+  @ApiOperation({ summary: 'Seller: update current logged-in seller profile' })
+  @ApiBody({ description: 'Partial seller profile data' })
+  async updateMe(@CurrentUser('userId') userId: string, @Body() updateSellerDto: any) {
+    return this.sellersService.update(userId, updateSellerDto);
+  }
+
   @Get('pending')
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(UserRole.ADMIN)

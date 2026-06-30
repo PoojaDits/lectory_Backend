@@ -83,6 +83,26 @@ export class UsersService {
     ).exec();
   }
 
+
+
+  async updatePassword(userId: string, plainPassword: string) {
+    const password = await bcrypt.hash(plainPassword, 12);
+    const user = await this.userModel.findByIdAndUpdate(
+      userId,
+      { password },
+      { new: true },
+    ).exec();
+    if (!user) throw new NotFoundException(USER_MESSAGES.USER_NOT_FOUND);
+    return user;
+  }
+
+  async clearOtp(userId: string) {
+    return this.userModel.findByIdAndUpdate(userId, {
+      otpCode: null,
+      otpExpiresAt: null,
+    }).exec();
+  }
+
   async setRefreshToken(userId: string, refreshTokenHash: string | null) {
     return this.userModel.findByIdAndUpdate(
       userId,

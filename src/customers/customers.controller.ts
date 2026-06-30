@@ -49,6 +49,16 @@ export class CustomersController {
     return customer;
   }
 
+
+  @Patch('me')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.CUSTOMER)
+  @ApiBearerAuth('access-token')
+  @ApiOperation({ summary: 'Customer: update current logged-in customer profile' })
+  async updateMe(@CurrentUser('userId') userId: string, @Body() updateCustomerDto: any) {
+    return this.customersService.update(userId, updateCustomerDto);
+  }
+
   @Get(':id')
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(UserRole.ADMIN)
