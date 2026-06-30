@@ -170,4 +170,126 @@ export class MailService {
       return false;
     }
   }
+
+  async sendSellerRejectedEmail(
+    to: string,
+    contactPerson: string,
+    reason?: string,
+  ): Promise<boolean> {
+    const name = this.clean(contactPerson || 'Seller');
+    const safeReason = this.clean(reason || 'Your seller account did not meet our approval requirements at this time.');
+    return this.sendStatusEmail({
+      to,
+      subject: 'Your seller account review update',
+      heading: 'Seller Account Rejected',
+      headingColor: '#dc2626',
+      html: `<p>Hi ${name},</p>
+<p>Thank you for applying to become a seller on Lectory.</p>
+<p>After review, your seller account has been <b>rejected</b>.</p>
+<p><b>Reason:</b> ${safeReason}</p>
+<p>You can contact Lectory support if you believe this needs another review.</p>
+<p>– Lectory Team</p>`,
+      logLabel: 'seller-rejected',
+    });
+  }
+
+  async sendBookApprovedEmail(
+    to: string,
+    contactPerson: string,
+    bookTitle: string,
+  ): Promise<boolean> {
+    const name = this.clean(contactPerson || 'Seller');
+    const title = this.clean(bookTitle || 'your book');
+    return this.sendStatusEmail({
+      to,
+      subject: `Your book "${title}" has been approved`,
+      heading: 'Book Approved',
+      headingColor: '#059669',
+      html: `<p>Hi ${name},</p>
+<p>Good news! Your submitted book <b>${title}</b> has been <b>approved</b> by admin.</p>
+<p>You can now create a seller listing for this book from your seller dashboard.</p>
+<p>– Lectory Team</p>`,
+      logLabel: 'book-approved',
+    });
+  }
+
+  async sendBookRejectedEmail(
+    to: string,
+    contactPerson: string,
+    bookTitle: string,
+    reason?: string,
+  ): Promise<boolean> {
+    const name = this.clean(contactPerson || 'Seller');
+    const title = this.clean(bookTitle || 'your book');
+    const safeReason = reason ? this.clean(reason) : '';
+    return this.sendStatusEmail({
+      to,
+      subject: `Your book "${title}" review update`,
+      heading: 'Book Rejected',
+      headingColor: '#dc2626',
+      html: `<p>Hi ${name},</p>
+<p>Your submitted book <b>${title}</b> has been <b>rejected</b> by admin.</p>
+${safeReason ? `<p><b>Reason:</b> ${safeReason}</p>` : ''}
+<p>Please review the catalog rules and submit again with corrected details if required.</p>
+<p>– Lectory Team</p>`,
+      logLabel: 'book-rejected',
+    });
+  }
+
+  private async sendStatusEmail({
+    to,
+    subject,
+    heading,
+    headingColor,
+    html,
+    logLabel,
+  }: {
+    to: string;
+    subject: string;
+    heading: string;
+    headingColor: string;
+    html: string;
+    logLabel: string;
+  }): Promise<boolean> {
+    const mailUser = this.config.get<string>('MAIL_USER');
+    const mailPass = this.config.get<string>('MAIL_PASS');
+
+    if (!mailUser || !mailPass) {
+      this.logger.warn(`SMTP credentials missing. ${logLabel} email NOT sent to ${to}.`);
+      return false;
+    }
+
+    const wrappedHtml = `<!DOCTYPE html><html><body style="margin:0;background:#f4f5f7;font-family:Arial,sans-serif">
+<table width="100%" cellpadding="0" cellspacing="0" style="background:#f4f5f7;padding:40px 0">
+<tr><td align="center">
+<table width="560" cellpadding="0" cellspacing="0" style="background:#fff;border-radius:14px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,.06)">
+<tr><td style="background:${headingColor};padding:28px;text-align:center">
+<h1 style="margin:0;color:#fff;font-size:22px">${heading}</h1>
+<p style="margin:6px 0 0;color:#fff;font-size:13px;opacity:.9">Lectory Marketplace</p>
+</td></tr>
+<tr><td style="padding:32px;color:#374151;font-size:14px;line-height:1.65">${html}</td></tr>
+<tr><td style="background:#f9fafb;padding:16px;text-align:center;border-top:1px solid #e5e7eb;color:#9ca3af;font-size:12px">© ${new Date().getFullYear()} Lectory</td></tr>
+</table>
+</td></tr></table>
+</body></html>`;
+
+    try {
+      await this.mailer.sendMail({
+        to,
+        from: this.from,
+        subject,
+        html: wrappedHtml,
+      });
+      this.logger.log(`✓ ${logLabel} email sent to ${to}`);
+      return true;
+    } catch (err: any) {
+      this.logger.error(`${logLabel} email failed to ${to}: ${err.message}`, err.stack);
+      return false;
+    }
+  }
+
+  private clean(value: string): string {
+    return value.replace(/[<>]/g, '').trim();
+  }
+
 }

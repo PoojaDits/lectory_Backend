@@ -3,11 +3,13 @@ import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
 import { User, UserDocument } from '../users/users.schema';
 import { UserRole, SellerStatus } from '../common/enums';
+import { MailService } from '../mail/mail.service';
 
 @Injectable()
 export class SellersService {
   constructor(
     @InjectModel(User.name) private userModel: Model<UserDocument>,
+    private readonly mailService: MailService,
   ) {}
 
   private sellerFilter() {
@@ -25,6 +27,13 @@ export class SellersService {
   async findAll(): Promise<UserDocument[]> {
     return this.userModel
       .find(this.sellerFilter())
+      .sort({ createdAt: -1 })
+      .exec();
+  }
+
+  async findApprovedPublic(): Promise<UserDocument[]> {
+    return this.userModel
+      .find({ ...this.sellerFilter(), sellerStatus: SellerStatus.APPROVED, isActive: true })
       .sort({ createdAt: -1 })
       .exec();
   }
@@ -75,6 +84,12 @@ export class SellersService {
       )
       .exec();
     if (!seller) throw new NotFoundException('Seller not found');
+
+    await this.mailService.sendSellerApprovedEmail(
+      seller.email,
+      seller.contactPerson || seller.businessName || 'Seller',
+    );
+
     return seller;
   }
 
@@ -91,6 +106,13 @@ export class SellersService {
       )
       .exec();
     if (!seller) throw new NotFoundException('Seller not found');
+
+    await this.mailService.sendSellerRejectedEmail(
+      seller.email,
+      seller.contactPerson || seller.businessName || 'Seller',
+      reason || 'Rejected by admin',
+    );
+
     return seller;
   }
 }

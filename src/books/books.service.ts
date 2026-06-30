@@ -7,8 +7,10 @@ import {
 import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
 import { BookDocument } from './books.schema';
+import { User, UserDocument } from '../users/users.schema';
 import { BookStatus } from '../common/enums';
 import { CreateBookDto, QueryBooksDto, UpdateBookStatusDto } from './dto';
+import { MailService } from '../mail/mail.service';
 
 @Injectable()
 export class BooksService {
@@ -16,6 +18,8 @@ export class BooksService {
 
   constructor(
     @InjectModel('Book') private bookModel: Model<BookDocument>,
+    @InjectModel(User.name) private userModel: Model<UserDocument>,
+    private readonly mailService: MailService,
   ) {}
 
   async findByIsbn(isbn: string): Promise<BookDocument | null> {
@@ -151,11 +155,43 @@ export class BooksService {
       if (!book) {
         throw new NotFoundException('Book not found');
       }
+
+      await this.notifySellerAboutBookReview(book, status);
+
       return book;
     } catch (error) {
       this.logger.error(`Failed to update book status: ${(error as Error).message}`, (error as Error).stack);
       throw error;
     }
+  }
+
+
+  private async notifySellerAboutBookReview(
+    book: BookDocument,
+    status: BookStatus,
+  ): Promise<void> {
+    if (!book.createdBySellerId) return;
+    if (status !== BookStatus.APPROVED && status !== BookStatus.REJECTED) return;
+
+    const seller = await this.userModel.findById(book.createdBySellerId).exec();
+    if (!seller?.email) return;
+
+    const sellerName = seller.contactPerson || seller.businessName || 'Seller';
+
+    if (status === BookStatus.APPROVED) {
+      await this.mailService.sendBookApprovedEmail(
+        seller.email,
+        sellerName,
+        book.title,
+      );
+      return;
+    }
+
+    await this.mailService.sendBookRejectedEmail(
+      seller.email,
+      sellerName,
+      book.title,
+    );
   }
 
   async deleteBook(id: string): Promise<void> {
